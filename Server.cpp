@@ -7,7 +7,7 @@
 #include <thread>
 #include <algorithm> //for std::remove
 
-Server::Server(int port) {
+Server::Server(int port): server_is_running(true) {
     server_socket = socket(AF_INET,SOCK_STREAM,0);
     if (server_socket==-1) {
         std::cerr << "Error creating server socket" << std::endl;
@@ -32,10 +32,14 @@ Server::Server(int port) {
     }
 
     std::cout << "Server configured successfully on port: " << port << std::endl;
+
+    std::thread(&Server::broadcasterThread, this).detach();
 }
 
 Server::~Server() {
     std::cout << "Closing the main server socket..." << std::endl;
+    server_is_running = false;
+    queue_condition.notify_all();
     close(server_socket);
 }
 
@@ -64,12 +68,42 @@ void Server::start_server() {
     }
 }
 
-void Server::broadcastMessage(std::string &message, int sender_socket) {
-    std::lock_guard<std::mutex> lock(client_mutex);
+// void Server::broadcastMessage(std::string &message, int sender_socket) {
+//     std::lock_guard<std::mutex> lock(client_mutex);
+//
+//     for (int client:client_sockets) {
+//         if (client != sender_socket) {
+//             send(client, message.c_str(), message.length(),0 );
+//         }
+//     }
+// }
 
-    for (int client:client_sockets) {
-        if (client != sender_socket) {
-            send(client, message.c_str(), message.length(),0 );
+void Server::broadcasterThread() {
+    while (server_is_running) {
+        std::pair<int, std::string> msg_data;
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+
+            queue_condition.wait(lock, [this]() {
+                return !message_queue.empty() || !server_is_running;
+            });
+
+            if (!server_is_running && message_queue.empty()) {
+                break;
+            }
+
+            msg_data = message_queue.front();
+            message_queue.pop();
+        }
+
+        int sender_socket = msg_data.first;
+        std::string message = msg_data.second;
+
+        std::lock_guard<std::mutex> lock(client_mutex);
+        for (int client:client_sockets) {
+            if (client != sender_socket) {
+                send(client, message.c_str(), message.length(), 0);
+            }
         }
     }
 }
@@ -83,12 +117,17 @@ void Server::handleClient(int client_socket) {
         int recived_bytes = recv(client_socket, buffer, sizeof(buffer), 0);
 
         if (recived_bytes > 0) {
-            std::string msg = "[Klient " + std::to_string(client_socket) + "]" + std::string(buffer);
+            std::string msg = "[Client " + std::to_string(client_socket) + "]" + std::string(buffer);
             std::cout << msg << std::endl;
 
-            broadcastMessage(msg, client_socket);
+            {
+                std::lock_guard<std::mutex> lock(queue_mutex);
+                message_queue.push({client_socket, msg});
+            }
+            queue_condition.notify_all();
+
         } else {
-            std::cout << "Client disconnected" << std::endl;
+            std::cout << "Client " << client_socket << " disconnected" << std::endl;
             break;
         }
 

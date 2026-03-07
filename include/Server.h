@@ -5,16 +5,26 @@
 #include <vector>
 #include <mutex>
 #include <string>
+#include <queue>
+#include <condition_variable>
+
 
 class Server {
 private:
     int server_socket;
     sockaddr_in server_address;
+    bool server_is_running;
+
     std::vector<int> client_sockets;
     std::mutex client_mutex;
 
+    std::queue<std::pair<int, std::string>> message_queue;
+    std::mutex queue_mutex;
+    std::condition_variable queue_condition; // CPU don't use 100% of power
+
     void handleClient(int client_socket);
-    void broadcastMessage(std::string& message, int sender_socket);
+    // void broadcastMessage(std::string& message, int sender_socket);
+    void broadcasterThread();
 
 public:
     Server(int port);
