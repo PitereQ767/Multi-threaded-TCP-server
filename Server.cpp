@@ -1,8 +1,11 @@
 #include "include/Server.h"
+
+#include <cstring>
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <thread>
+#include <algorithm> //for std::remove
 
 Server::Server(int port) {
     server_socket = socket(AF_INET,SOCK_STREAM,0);
@@ -14,7 +17,7 @@ Server::Server(int port) {
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = INADDR_ANY;
     server_address.sin_port = htons(port);
-    
+
 
     if (bind(server_socket, (sockaddr*)&server_address, sizeof(server_address))==-1) {
         std::cerr << "Error binding server port: "<< port<< " !" << std::endl;
@@ -51,28 +54,49 @@ void Server::start_server() {
 
         std::cout << "Client connected:" << client_socket << std::endl;
 
+        {
+            std::lock_guard<std::mutex> lock(client_mutex);
+            client_sockets.push_back(client_socket);
+        }
+
         std::thread(&Server::handleClient, this, client_socket).detach();
 
     }
 }
 
+void Server::broadcastMessage(std::string &message, int sender_socket) {
+    std::lock_guard<std::mutex> lock(client_mutex);
+
+    for (int client:client_sockets) {
+        if (client != sender_socket) {
+            send(client, message.c_str(), message.length(),0 );
+        }
+    }
+}
+
 void Server::handleClient(int client_socket) {
-    char buffer[1024] = {0}; // "{0}" wyzerowanie bufora aby nie znajdowaly sie tam smieci
+    char buffer[1024];
 
-    int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+    while (true) {
+        memset(buffer, 0, sizeof(buffer));
 
-    if (bytes_received > 0) {
-        std::cout << "[Socket "<< client_socket << "] recived: " << buffer << std::endl;
+        int recived_bytes = recv(client_socket, buffer, sizeof(buffer), 0);
 
-        std::string response = "Server confirms: " + std::string(buffer);
-        send(client_socket, response.c_str(), response.length(), 0);
-    } else if (bytes_received == 0) {
-        std::cout << "[Socket "<< client_socket << "] connection closed" << std::endl;
-    } else {
-        std::cerr << "Error reading from cient"<<std::endl;
+        if (recived_bytes > 0) {
+            std::string msg = "[Klient " + std::to_string(client_socket) + "]" + std::string(buffer);
+            std::cout << msg << std::endl;
+
+            broadcastMessage(msg, client_socket);
+        } else {
+            std::cout << "Client disconnected" << std::endl;
+            break;
+        }
+
     }
 
     close(client_socket);
-    std::cout << "Customer support has been terminated (Socket ID: "<< client_socket << ")" << std::endl;
-    std::cout << "------------------------------------------------------------"<<std::endl;
+    {
+        std::lock_guard<std::mutex> lock(client_mutex);
+        client_sockets.erase(std::remove(client_sockets.begin(), client_sockets.end(), client_socket), client_sockets.end()); //"Erase-Remove Idiom"
+    }
 }
