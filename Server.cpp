@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <thread>
 
 Server::Server(int port) {
     server_socket = socket(AF_INET,SOCK_STREAM,0);
@@ -13,6 +14,7 @@ Server::Server(int port) {
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = INADDR_ANY;
     server_address.sin_port = htons(port);
+    
 
     if (bind(server_socket, (sockaddr*)&server_address, sizeof(server_address))==-1) {
         std::cerr << "Error binding server port: "<< port<< " !" << std::endl;
@@ -49,7 +51,8 @@ void Server::start_server() {
 
         std::cout << "Client connected:" << client_socket << std::endl;
 
-        handleClient(client_socket);
+        std::thread(&Server::handleClient, this, client_socket).detach();
+
     }
 }
 
