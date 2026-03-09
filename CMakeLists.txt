@@ -6,4 +6,5 @@ set(CMAKE_CXX_STANDARD 14)
 add_executable(Multi_threaded_TCP_server
         main.cpp
         include/Server.h
-        Server.cpp)
+        Server.cpp
+        Client.cpp)
