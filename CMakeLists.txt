@@ -7,4 +7,5 @@ add_executable(Multi_threaded_TCP_server
         server_main.cpp
         include/Server.h
         Server.cpp
-        client_main.cpp)
+        client_main.cpp
+        include/ChatClient.h)
