@@ -7,6 +7,7 @@
 #include <mutex>
 #include <atomic>
 
+
 class ChatClient {
     int client_socket;
     std::atomic<bool> is_connected;
@@ -22,7 +23,7 @@ class ChatClient {
 
     std::thread receive_thread;
 
-    void receiveMessagee();
+    void receiveMessages();
 
     void addLog(const std::string& message);
 

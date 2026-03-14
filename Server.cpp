@@ -68,16 +68,6 @@ void Server::start_server() {
     }
 }
 
-// void Server::broadcastMessage(std::string &message, int sender_socket) {
-//     std::lock_guard<std::mutex> lock(client_mutex);
-//
-//     for (int client:client_sockets) {
-//         if (client != sender_socket) {
-//             send(client, message.c_str(), message.length(),0 );
-//         }
-//     }
-// }
-
 void Server::broadcasterThread() {
     while (server_is_running) {
         std::pair<int, std::string> msg_data;

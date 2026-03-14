@@ -1,0 +1,90 @@
+#include "include/ChatClient.h"
+
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h> //for close
+#include "imgui/imgui.h"
+
+ChatClient::ChatClient() {
+    client_socket = -1;
+    is_connected = false;
+    is_running = true;
+
+    memset(ip_buffer, 0, sizeof(ip_buffer));
+    strcpy(ip_buffer, "127.0.0.1");
+
+    memset(port_buffer, 0, sizeof(port_buffer));
+    strcpy(port_buffer, "8080");
+
+    memset(message_buffer, 0, sizeof(message_buffer));
+}
+
+ChatClient::~ChatClient() {
+    is_running = false;
+
+    if (client_socket != -1) {
+        close(client_socket);
+    }
+
+    if (receive_thread.joinable()) {
+        receive_thread.join();
+    }
+}
+
+void ChatClient::addLog(const std::string &message) {
+    std::lock_guard<std::mutex> lock(chat_history_mutex);
+    chat_history.push_back(message);
+}
+
+void ChatClient::receiveMessages() {
+    char buffer[1024];
+    while (is_running && is_connected) {
+        memset(buffer, 0, sizeof(buffer));
+
+        int bytes_recieved = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
+
+        if (bytes_recieved > 0) {
+            addLog(std::string(buffer));
+        }else if (bytes_recieved == 0) {
+            addLog("[System] The Client has lost the cinnection");
+            is_connected = false;
+            break;
+        }else {
+            break;
+        }
+    }
+}
+
+void ChatClient::drawUI() {
+    if (!is_connected) {
+        ImGui::Begin("Logowanie do serwera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::InputText("Adres IP", ip_buffer, sizeof(ip_buffer));
+        ImGui::InputText("Port", port_buffer, sizeof(port_buffer));
+
+        if (ImGui::Button("Connect", ImVec2(120, 0))) {
+            client_socket = socket(AF_INET, SOCK_STREAM, 0);
+            if (client_socket != -1) {
+                sockaddr_in server_addr;
+                server_addr.sin_family = AF_INET;
+                server_addr.sin_port = htons(std::stoi(port_buffer));
+                inet_pton(AF_INET, ip_buffer, &server_addr.sin_addr); //konwertuje IP na binarna postac numeryczna
+
+                if (connect(client_socket, (sockaddr*)&server_addr, sizeof(server_addr))) {
+                    is_connected = true;
+                    addLog("[System] Połączono z serwerem " + std::string(ip_buffer));
+
+                    receive_thread = std::thread(&ChatClient::receiveMessages, this);
+                }else {
+                    close(client_socket);
+                    client_socket = -1;
+                }
+            }
+        }
+
+        ImGui::End();
+    }else {
+        ImGui::Begin("Polaczono z serwerem", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::End();
+    }
+}

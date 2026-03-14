@@ -3,6 +3,7 @@
 #include "imgui/backends/imgui_impl_opengl3.h"
 #include "GLFW/glfw3.h"
 #include <iostream>
+#include "include/ChatClient.h"
 
 int main() {
     if (!glfwInit()) return -1;
@@ -28,6 +29,8 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
+    ChatClient chat;
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -35,11 +38,7 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Okienko testowe");
-        if (ImGui::Button("Kliknij mnie")) {
-            std::cout << "Przycisk dziala w konsoli" << std::endl;
-        }
-        ImGui::End();
+        chat.drawUI();
 
         ImGui::Render();
         int display_w, display_h;
