@@ -7,6 +7,17 @@
 #include <mutex>
 #include <atomic>
 
+enum class MsgType {
+    SYSTEM,
+    ME,
+    OTHER
+};
+
+struct ChatMessage {
+    std::string text;
+    MsgType type;
+};
+
 
 class ChatClient {
     int client_socket;
@@ -17,15 +28,16 @@ class ChatClient {
     char ip_buffer[64];
     char port_buffer[16];
     char message_buffer[512];
+    char nick_buffer[32];
 
-    std::vector<std::string> chat_history;
+    std::vector<ChatMessage> chat_history;
     std::mutex chat_history_mutex;
 
     std::thread receive_thread;
 
     void receiveMessages();
 
-    void addLog(const std::string& message);
+    void addLog(const std::string& message, MsgType type);
 
 public:
     ChatClient();

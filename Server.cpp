@@ -76,7 +76,7 @@ void Server::broadcasterThread() {
 
             queue_condition.wait(lock, [this]() {
                 return !message_queue.empty() || !server_is_running;
-            });
+            }); //uzywamy .wait poniewaz gdy zanim watek zostanie uspiony trzeba odblokowac zasob na jakim pracuje
 
             if (!server_is_running && message_queue.empty()) {
                 break;
@@ -108,14 +108,14 @@ void Server::handleClient(int client_socket) {
         int recived_bytes = recv(client_socket, buffer, sizeof(buffer), 0);
 
         if (recived_bytes > 0) {
-            std::string msg = "[Client " + std::to_string(client_socket) + "]" + std::string(buffer);
+            std::string msg = std::string(buffer);
             std::cout << msg << std::endl;
 
             {
                 std::lock_guard<std::mutex> lock(queue_mutex);
                 message_queue.push({client_socket, msg});
             }
-            queue_condition.notify_all();
+            queue_condition.notify_one();
 
         } else {
             std::cout << "Client " << client_socket << " disconnected" << std::endl;

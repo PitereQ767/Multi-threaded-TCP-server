@@ -6,6 +6,9 @@
 #include <unistd.h> //for close
 #include "imgui/imgui.h"
 #include <iostream>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
 ChatClient::ChatClient() {
     client_socket = -1;
@@ -17,6 +20,9 @@ ChatClient::ChatClient() {
 
     memset(port_buffer, 0, sizeof(port_buffer));
     strcpy(port_buffer, "8080");
+
+    memset(nick_buffer, 0, sizeof(nick_buffer));
+    strcpy(nick_buffer, "User");
 
     memset(message_buffer, 0, sizeof(message_buffer));
 }
@@ -33,9 +39,16 @@ ChatClient::~ChatClient() {
     }
 }
 
-void ChatClient::addLog(const std::string &message) {
+void ChatClient::addLog(const std::string &message, MsgType type) {
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+    std::tm* now_tm = std::localtime(&now_c);
+
+    std::stringstream ss;
+    ss << "[" << std::put_time(now_tm, "%H:%M:%S") << "] " << message;
+
     std::lock_guard<std::mutex> lock(chat_history_mutex);
-    chat_history.push_back(message);
+    chat_history.push_back({ss.str(), type});
 }
 
 void ChatClient::receiveMessages() {
@@ -47,10 +60,10 @@ void ChatClient::receiveMessages() {
 
         if (bytes_recieved > 0) {
             buffer[bytes_recieved] = '\0';
-            addLog(std::string(buffer));
+            addLog(std::string(buffer), MsgType::OTHER);
 
         }else if (bytes_recieved == 0) {
-            addLog("[System] The Client has lost the connection");
+            addLog("The Client has lost the connection", MsgType::SYSTEM);
             is_connected = false;
             break;
         }else {
@@ -64,6 +77,7 @@ void ChatClient::drawUI() {
         ImGui::Begin("Logowanie do serwera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::InputText("Adres IP", ip_buffer, sizeof(ip_buffer));
         ImGui::InputText("Port", port_buffer, sizeof(port_buffer));
+        ImGui::InputText("Nick", nick_buffer, sizeof(nick_buffer));
 
         if (ImGui::Button("Connect", ImVec2(120, 0))) {
             client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -75,7 +89,7 @@ void ChatClient::drawUI() {
 
                 if (connect(client_socket, (sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
                     is_connected = true;
-                    addLog("[System] Connected to the server " + std::string(ip_buffer));
+                    addLog(("Connected to the server " + std::string(ip_buffer)), MsgType::SYSTEM);
 
                     receive_thread = std::thread(&ChatClient::receiveMessages, this);
                 }else {
@@ -95,7 +109,17 @@ void ChatClient::drawUI() {
         {
             std::lock_guard<std::mutex> lock(chat_history_mutex);
             for (const auto & msg : chat_history) {
-                ImGui::TextWrapped("%s", msg.c_str());
+                ImVec4 color;
+                if (msg.type == MsgType::SYSTEM) {
+                    color = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+                }else if (msg.type == MsgType::ME) {
+                    color = ImVec4(0.0f, 1.0f, 0.5f, 1.0f);
+                }else {
+                    color = ImVec4(0.4f, 0.8f, 1.0f, 1.0f);
+                }
+
+
+                ImGui::TextColored(color, "%s", msg.text.c_str());
             }
 
             if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
@@ -109,9 +133,11 @@ void ChatClient::drawUI() {
         send_pressed |= ImGui::Button("Send");
 
         if (send_pressed && strlen(message_buffer) > 0) {
-            addLog("[Ja]: " + std::string(message_buffer));
+            std::string full_msg = std::string(nick_buffer) + ": " + std::string(message_buffer);
 
-            send(client_socket, message_buffer, strlen(message_buffer), 0);
+            addLog(full_msg, MsgType::ME);
+
+            send(client_socket, full_msg.c_str(), full_msg.length(), 0);
 
             memset(message_buffer, 0, sizeof(message_buffer));
 

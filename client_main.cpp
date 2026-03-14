@@ -32,6 +32,10 @@ int main() {
     ChatClient chat;
 
     while (!glfwWindowShouldClose(window)) {
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(window, true);
+        }
+
         glfwPollEvents();
 
         ImGui_ImplOpenGL3_NewFrame();
