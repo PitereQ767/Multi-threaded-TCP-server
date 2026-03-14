@@ -44,4 +44,4 @@ cmake-build-debug/
 .idea/
 imgui.ini
 client
-server.out
+server

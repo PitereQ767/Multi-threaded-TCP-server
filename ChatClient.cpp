@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <unistd.h> //for close
 #include "imgui/imgui.h"
+#include <iostream>
 
 ChatClient::ChatClient() {
     client_socket = -1;
@@ -47,8 +48,9 @@ void ChatClient::receiveMessages() {
         if (bytes_recieved > 0) {
             buffer[bytes_recieved] = '\0';
             addLog(std::string(buffer));
+
         }else if (bytes_recieved == 0) {
-            addLog("[System] The Client has lost the cinnection");
+            addLog("[System] The Client has lost the connection");
             is_connected = false;
             break;
         }else {
@@ -73,7 +75,7 @@ void ChatClient::drawUI() {
 
                 if (connect(client_socket, (sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
                     is_connected = true;
-                    addLog("[System] Połączono z serwerem " + std::string(ip_buffer));
+                    addLog("[System] Connected to the server " + std::string(ip_buffer));
 
                     receive_thread = std::thread(&ChatClient::receiveMessages, this);
                 }else {
@@ -85,6 +87,8 @@ void ChatClient::drawUI() {
 
         ImGui::End();
     }else {
+
+        ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_Appearing);
         ImGui::Begin("Chat TCP", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::BeginChild("ChatHistory", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
 
@@ -102,9 +106,11 @@ void ChatClient::drawUI() {
 
         bool send_pressed = ImGui::InputText("##Messsage", message_buffer, sizeof(message_buffer), ImGuiInputTextFlags_EnterReturnsTrue);
         ImGui::SameLine();
-        send_pressed |= ImGui::Button("Wyslij");
+        send_pressed |= ImGui::Button("Send");
 
         if (send_pressed && strlen(message_buffer) > 0) {
+            addLog("[Ja]: " + std::string(message_buffer));
+
             send(client_socket, message_buffer, strlen(message_buffer), 0);
 
             memset(message_buffer, 0, sizeof(message_buffer));
