@@ -45,6 +45,7 @@ void ChatClient::receiveMessages() {
         int bytes_recieved = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
 
         if (bytes_recieved > 0) {
+            buffer[bytes_recieved] = '\0';
             addLog(std::string(buffer));
         }else if (bytes_recieved == 0) {
             addLog("[System] The Client has lost the cinnection");
@@ -70,7 +71,7 @@ void ChatClient::drawUI() {
                 server_addr.sin_port = htons(std::stoi(port_buffer));
                 inet_pton(AF_INET, ip_buffer, &server_addr.sin_addr); //konwertuje IP na binarna postac numeryczna
 
-                if (connect(client_socket, (sockaddr*)&server_addr, sizeof(server_addr))) {
+                if (connect(client_socket, (sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
                     is_connected = true;
                     addLog("[System] Połączono z serwerem " + std::string(ip_buffer));
 
@@ -84,7 +85,33 @@ void ChatClient::drawUI() {
 
         ImGui::End();
     }else {
-        ImGui::Begin("Polaczono z serwerem", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Begin("Chat TCP", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::BeginChild("ChatHistory", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
+
+        {
+            std::lock_guard<std::mutex> lock(chat_history_mutex);
+            for (const auto & msg : chat_history) {
+                ImGui::TextWrapped("%s", msg.c_str());
+            }
+
+            if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+                ImGui::SetScrollHereY(1.0f);
+            }
+        }
+        ImGui::EndChild();
+
+        bool send_pressed = ImGui::InputText("##Messsage", message_buffer, sizeof(message_buffer), ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::SameLine();
+        send_pressed |= ImGui::Button("Wyslij");
+
+        if (send_pressed && strlen(message_buffer) > 0) {
+            send(client_socket, message_buffer, strlen(message_buffer), 0);
+
+            memset(message_buffer, 0, sizeof(message_buffer));
+
+            ImGui::SetKeyboardFocusHere(-1); //przywrocenie kursora do pola tekstowego
+        }
+
         ImGui::End();
     }
 }
