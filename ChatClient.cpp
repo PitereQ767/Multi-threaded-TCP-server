@@ -62,21 +62,33 @@ void ChatClient::receiveMessages() {
             buffer[bytes_recieved] = '\0';
 
             std::string rec_str(buffer);
-            if (rec_str.rfind("/users ", 0) == 0) {
-                std::string users_str = rec_str.substr(7);
 
-                std::vector<std::string> new_users;
-                std::stringstream ss(users_str);
-                std::string one_name;
+            std::stringstream packet_stream(rec_str);
+            std::string single_message;
 
-                while (std::getline(ss, one_name, ',')) {
-                    if (!one_name.empty()) new_users.push_back(one_name);
+            while (std::getline(packet_stream, single_message, '\n')) {
+                if (single_message.empty()) continue;
+
+                if (single_message.rfind("/users ", 0) == 0) {
+                    std::string users_str = single_message.substr(7);
+
+                    std::vector<std::string> new_users;
+                    std::stringstream ss(users_str);
+                    std::string one_name;
+
+                    while (std::getline(ss, one_name, ',')) {
+                        if (!one_name.empty()) new_users.push_back(one_name);
+                    }
+
+                    std::lock_guard<std::mutex> lock(users_mutex);
+                    active_users = new_users;
+                }else if (single_message.rfind("[System] ", 0) == 0) {
+                    std::string sub_msg = single_message.substr(9);
+                    addLog(sub_msg, MsgType::SYSTEM);
                 }
-
-                std::lock_guard<std::mutex> lock(users_mutex);
-                active_users = new_users;
-            }else {
-                addLog(std::string(buffer), MsgType::OTHER);
+                else {
+                    addLog(single_message, MsgType::OTHER);
+                }
             }
         }else if (bytes_recieved == 0) {
             addLog("The Client has lost the connection", MsgType::SYSTEM);

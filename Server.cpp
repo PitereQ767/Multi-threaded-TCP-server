@@ -89,6 +89,8 @@ void Server::broadcasterThread() {
         int sender_socket = msg_data.first;
         std::string message = msg_data.second;
 
+        message += "\n";
+
         std::lock_guard<std::mutex> lock(client_mutex);
         for (int client:client_sockets) {
             if (client != sender_socket || sender_socket == 0) {
@@ -105,7 +107,7 @@ void Server::handleClient(int client_socket) {
     while (true) {
         memset(buffer, 0, sizeof(buffer));
 
-        int recived_bytes = recv(client_socket, buffer, sizeof(buffer), 0);
+        int recived_bytes = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
 
         if (recived_bytes > 0) {
             buffer[recived_bytes] = '\0';
