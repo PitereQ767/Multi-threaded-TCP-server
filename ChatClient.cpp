@@ -60,8 +60,24 @@ void ChatClient::receiveMessages() {
 
         if (bytes_recieved > 0) {
             buffer[bytes_recieved] = '\0';
-            addLog(std::string(buffer), MsgType::OTHER);
 
+            std::string rec_str(buffer);
+            if (rec_str.rfind("/users ", 0) == 0) {
+                std::string users_str = rec_str.substr(7);
+
+                std::vector<std::string> new_users;
+                std::stringstream ss(users_str);
+                std::string one_name;
+
+                while (std::getline(ss, one_name, ',')) {
+                    if (!one_name.empty()) new_users.push_back(one_name);
+                }
+
+                std::lock_guard<std::mutex> lock(users_mutex);
+                active_users = new_users;
+            }else {
+                addLog(std::string(buffer), MsgType::OTHER);
+            }
         }else if (bytes_recieved == 0) {
             addLog("The Client has lost the connection", MsgType::SYSTEM);
             is_connected = false;
@@ -91,6 +107,9 @@ void ChatClient::drawUI() {
                     is_connected = true;
                     addLog(("Connected to the server " + std::string(ip_buffer)), MsgType::SYSTEM);
 
+                    std::string hello = "/nick " + std::string(nick_buffer);
+                    send(client_socket, hello.c_str(), hello.length(), 0);
+
                     receive_thread = std::thread(&ChatClient::receiveMessages, this);
                 }else {
                     close(client_socket);
@@ -104,7 +123,7 @@ void ChatClient::drawUI() {
 
         ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_Appearing);
         ImGui::Begin("Chat TCP", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-        ImGui::BeginChild("ChatHistory", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
+        ImGui::BeginChild("ChatHistory", ImVec2(ImGui::GetWindowWidth() * 0.70f, -ImGui::GetFrameHeightWithSpacing()), true);
 
         {
             std::lock_guard<std::mutex> lock(chat_history_mutex);
@@ -124,6 +143,19 @@ void ChatClient::drawUI() {
 
             if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
                 ImGui::SetScrollHereY(1.0f);
+            }
+        }
+        ImGui::EndChild();
+
+        ImGui::SameLine();
+        ImGui::BeginChild("UserList", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Aktywni ( %zu )", active_users.size());
+        ImGui::Separator();
+
+        {
+            std::lock_guard<std::mutex> lock(users_mutex);
+            for (const auto& user : active_users) {
+                ImGui::BulletText("%s", user.c_str());
             }
         }
         ImGui::EndChild();

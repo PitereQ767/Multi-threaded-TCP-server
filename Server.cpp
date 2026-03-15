@@ -91,7 +91,7 @@ void Server::broadcasterThread() {
 
         std::lock_guard<std::mutex> lock(client_mutex);
         for (int client:client_sockets) {
-            if (client != sender_socket) {
+            if (client != sender_socket || sender_socket == 0) {
                 send(client, message.c_str(), message.length(), 0);
             }
         }
@@ -108,25 +108,72 @@ void Server::handleClient(int client_socket) {
         int recived_bytes = recv(client_socket, buffer, sizeof(buffer), 0);
 
         if (recived_bytes > 0) {
-            std::string msg = std::string(buffer);
-            std::cout << msg << std::endl;
+            buffer[recived_bytes] = '\0';
+            std::string msg(buffer);
+
+            if (msg.rfind("/nick ", 0) == 0) {
+                std::string new_nick = msg.substr(6);
+
+                {
+                    std::lock_guard<std::mutex> lock(client_mutex);
+                    client_nicks[client_socket] = new_nick;
+                }
+
+                std::cout << "Gniazdo " << client_socket << " to teraz " << new_nick << std::endl;
+                broadcastUserList();
+                std::string welcome_msg = "[System] " + new_nick + " dolaczyl do czatu";
+                {
+                    std::lock_guard<std::mutex> lock(queue_mutex);
+                    message_queue.push({0, welcome_msg});
+                }
+                queue_condition.notify_one();
+            }else {
+                std::lock_guard<std::mutex> lock(queue_mutex);
+                message_queue.push({client_socket, msg});
+                queue_condition.notify_one();
+            }
+
+
+        } else {
+            std::string disconnected_nick = "Anyone";
+            {
+                std::lock_guard<std::mutex> lock(client_mutex);
+                if (client_nicks.count(client_socket)) {
+                    disconnected_nick = client_nicks[client_socket];
+                    client_nicks.erase(client_socket);
+                }
+            }
+            client_sockets.erase(std::remove(client_sockets.begin(), client_sockets.end(), client_socket), client_sockets.end());
+            std::cout << "Client " << client_socket << " disconnected" << std::endl;
+            broadcastUserList();
+            std::string info = "[System] " + disconnected_nick + " left the chat";
 
             {
                 std::lock_guard<std::mutex> lock(queue_mutex);
-                message_queue.push({client_socket, msg});
+                message_queue.push({0, info});
             }
             queue_condition.notify_one();
-
-        } else {
-            std::cout << "Client " << client_socket << " disconnected" << std::endl;
             break;
         }
 
     }
 
     close(client_socket);
+}
+
+void Server::broadcastUserList() {
+    std::string users_msg = "/users ";
+
     {
         std::lock_guard<std::mutex> lock(client_mutex);
-        client_sockets.erase(std::remove(client_sockets.begin(), client_sockets.end(), client_socket), client_sockets.end()); //"Erase-Remove Idiom"
+        for (auto const& pair : client_nicks) {
+            users_msg += pair.second + ",";
+        }
     }
+
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        message_queue.push({0, users_msg});
+    }
+    queue_condition.notify_one();
 }

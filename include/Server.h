@@ -7,7 +7,7 @@
 #include <string>
 #include <queue>
 #include <condition_variable>
-
+#include <map>
 
 class Server {
 private:
@@ -17,6 +17,7 @@ private:
 
     std::vector<int> client_sockets;
     std::mutex client_mutex;
+    std::map<int, std::string> client_nicks;
 
     std::queue<std::pair<int, std::string>> message_queue;
     std::mutex queue_mutex;
@@ -25,7 +26,7 @@ private:
     void handleClient(int client_socket);
     // void broadcastMessage(std::string& message, int sender_socket);
     void broadcasterThread();
-
+    void broadcastUserList();
 public:
     Server(int port);
     virtual ~Server();

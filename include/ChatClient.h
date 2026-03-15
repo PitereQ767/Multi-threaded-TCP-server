@@ -33,6 +33,9 @@ class ChatClient {
     std::vector<ChatMessage> chat_history;
     std::mutex chat_history_mutex;
 
+    std::vector<std::string> active_users;
+    std::mutex users_mutex;
+
     std::thread receive_thread;
 
     void receiveMessages();
