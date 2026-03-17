@@ -85,6 +85,8 @@ void ChatClient::receiveMessages() {
                 }else if (single_message.rfind("[System] ", 0) == 0) {
                     std::string sub_msg = single_message.substr(9);
                     addLog(sub_msg, MsgType::SYSTEM);
+                }else if (single_message.rfind("[Szept", 0) == 0) {
+                    addLog(single_message, MsgType::WHISPER);
                 }
                 else {
                     addLog(single_message, MsgType::OTHER);
@@ -97,6 +99,40 @@ void ChatClient::receiveMessages() {
         }else {
             break;
         }
+    }
+}
+
+void ChatClient::normalMessage() {
+    std::string full_msg = std::string(nick_buffer) + ": " + std::string(message_buffer);
+
+    addLog(full_msg, MsgType::ME);
+
+    send(client_socket, full_msg.c_str(), full_msg.length(), 0);
+
+    memset(message_buffer, 0, sizeof(message_buffer));
+
+    ImGui::SetKeyboardFocusHere(-1); //przywrocenie kursora do pola tekstowego
+}
+
+void ChatClient::privateMessage(const std::string &typed_text) {
+    size_t space_pos = typed_text.find(' ', 3);
+
+    if (space_pos != std::string::npos) {
+        std::string target = typed_text.substr(3, space_pos - 3);
+        std::string content = typed_text.substr(space_pos + 1);
+
+        std::string local_echo = "[Szept do " + target + "] " + content + "\n";
+        addLog(local_echo, MsgType::WHISPER);
+
+        std::string network_msg = "/w " + target + " [Szept od " + std::string(nick_buffer) + "] " + content + "\n";
+        send(client_socket, network_msg.c_str(), network_msg.length(), 0);
+
+        //Czyszczenie
+        memset(message_buffer, 0, sizeof(message_buffer));
+
+        ImGui::SetKeyboardFocusHere(-1);
+    }else {
+        addLog("Wrong format! Use: /w Nick Message", MsgType::SYSTEM);
     }
 }
 
@@ -145,11 +181,11 @@ void ChatClient::drawUI() {
                     color = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
                 }else if (msg.type == MsgType::ME) {
                     color = ImVec4(0.0f, 1.0f, 0.5f, 1.0f);
+                }else if (msg.type == MsgType::WHISPER) {
+                  color = ImVec4(1.0f, 0.5f, 1.0f, 1.0f);
                 }else {
                     color = ImVec4(0.4f, 0.8f, 1.0f, 1.0f);
                 }
-
-
                 ImGui::TextColored(color, "%s", msg.text.c_str());
             }
 
@@ -177,15 +213,12 @@ void ChatClient::drawUI() {
         send_pressed |= ImGui::Button("Send");
 
         if (send_pressed && strlen(message_buffer) > 0) {
-            std::string full_msg = std::string(nick_buffer) + ": " + std::string(message_buffer);
-
-            addLog(full_msg, MsgType::ME);
-
-            send(client_socket, full_msg.c_str(), full_msg.length(), 0);
-
-            memset(message_buffer, 0, sizeof(message_buffer));
-
-            ImGui::SetKeyboardFocusHere(-1); //przywrocenie kursora do pola tekstowego
+            std::string typed_text(message_buffer);
+            if (typed_text.rfind("/w ", 0) == 0) {
+                privateMessage(typed_text);
+            }else {
+                normalMessage();
+            }
         }
 
         ImGui::End();

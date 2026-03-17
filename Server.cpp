@@ -129,7 +129,33 @@ void Server::handleClient(int client_socket) {
                     message_queue.push({0, welcome_msg});
                 }
                 queue_condition.notify_one();
-            }else {
+            }else if (msg.rfind("/w ", 0) == 0) {
+                size_t space_pos = msg.find(" ", 3);
+                if (space_pos != std::string::npos) {
+                    std::string target_nick = msg.substr(3, space_pos - 3);
+                    std::string actual_msg = msg.substr(space_pos + 1) + "\n";
+
+                    int target_socket = -1;
+
+                    {
+                        std::lock_guard<std::mutex> lock(client_mutex);
+                        for (const auto& pair : client_nicks) {
+                            if (pair.second == target_nick) {
+                                target_socket = pair.first;
+                            }
+                        }
+                    }
+
+                    if (target_socket != -1) {
+                        // std::cout << actual_msg << std::endl;
+                        send(target_socket, actual_msg.c_str(), actual_msg.length(), 0);
+                    }else {
+                        std::string err_msg = "[System] User " + target_nick + " dosen't exist \n";
+                        send(client_socket, err_msg.c_str(), err_msg.length(), 0);
+                    }
+                }
+            }
+            else {
                 std::lock_guard<std::mutex> lock(queue_mutex);
                 message_queue.push({client_socket, msg});
                 queue_condition.notify_one();

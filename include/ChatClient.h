@@ -10,7 +10,8 @@
 enum class MsgType {
     SYSTEM,
     ME,
-    OTHER
+    OTHER,
+    WHISPER
 };
 
 struct ChatMessage {
@@ -41,6 +42,9 @@ class ChatClient {
     void receiveMessages();
 
     void addLog(const std::string& message, MsgType type);
+
+    void normalMessage();
+    void privateMessage(const std::string &typed_text);
 
 public:
     ChatClient();
