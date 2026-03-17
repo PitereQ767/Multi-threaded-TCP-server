@@ -136,6 +136,9 @@ void Server::handleClient(int client_socket) {
 
                 std::cout << "Gniazdo " << client_socket << " to teraz " << new_nick << std::endl;
                 broadcastUserList();
+
+                readFromDatabase(client_socket);
+
                 std::string welcome_msg = "[System] " + new_nick + " dolaczyl do czatu";
                 {
                     std::lock_guard<std::mutex> lock(queue_mutex);
@@ -250,6 +253,7 @@ void Server::saveToDatabase(int client_socket, const std::string& msg) {
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        //Zabezpiecznie przed niebezpiecznymi dla bazy wiadomosciami
         sqlite3_bind_text(stmt, 1, current_nick.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, msg.c_str(), -1, SQLITE_TRANSIENT);
 
@@ -261,4 +265,27 @@ void Server::saveToDatabase(int client_socket, const std::string& msg) {
     }else {
         std::cerr << "Error copilation SQL" << std::endl;
     }
+}
+
+void Server::readFromDatabase(int client_socket) {
+    std::string history_sql = "SELECT sender, content FROM (SELECT * FROM messages ORDER BY id DESC LIMIT 50) ORDER BY id ASC;";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, history_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* db_sender = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            const char* db_content = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+
+            if (db_sender && db_content) {
+                std::string history_msg = "[Historia] " + std::string(db_sender) + ": " + std::string(db_content) + "\n";
+
+                send(client_socket, history_msg.c_str(), history_msg.length(), 0);
+            }
+        }
+        sqlite3_finalize(stmt);
+    }else {
+        std::cerr << "Error in read history from database" << std::endl;
+    }
+
+
 }

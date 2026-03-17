@@ -33,6 +33,7 @@ private:
 
     void initDatabase();
     void saveToDatabase(int client_socket, const std::string& msg);
+    void readFromDatabase(int client_socket);
 public:
     Server(int port);
     virtual ~Server();
