@@ -5,8 +5,8 @@
 #include <iostream>
 #include "include/ChatClient.h"
 
-int main() {
-    if (!glfwInit()) return -1;
+GLFWwindow* initImGui() {
+    if (!glfwInit()) return nullptr;
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); //OpenGL 3.0
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
@@ -15,7 +15,7 @@ int main() {
     GLFWwindow* window = glfwCreateWindow(800, 600, "Chat Client", NULL, NULL);
     if (!window) {
         glfwTerminate();
-        return -1;
+        return nullptr;
     }
 
     glfwMakeContextCurrent(window);
@@ -29,6 +29,10 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
+    return window;
+}
+
+void mainLoop(GLFWwindow* window) {
     ChatClient chat;
 
     while (!glfwWindowShouldClose(window)) {
@@ -55,12 +59,27 @@ int main() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
     }
+}
 
+void deleteImGuiAndGLFW(GLFWwindow* window) {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();
+}
 
+int main() {
+
+    GLFWwindow* window = initImGui();
+
+    if (window == nullptr) {
+        std::cout << "Failed to create GLFW window." << std::endl;
+        return -1;
+    }
+
+    mainLoop(window);
+
+    deleteImGuiAndGLFW(window);
     return 0;
 }
