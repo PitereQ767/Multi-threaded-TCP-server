@@ -169,6 +169,7 @@ void Server::handleClient(int client_socket) {
                 }
             }
             else {
+                saveToDatabase(client_socket, msg);
                 std::lock_guard<std::mutex> lock(queue_mutex);
                 message_queue.push({client_socket, msg});
                 queue_condition.notify_one();
@@ -234,5 +235,30 @@ void Server::initDatabase() {
         sqlite3_free(error_msg);
     }else {
         std::cout << "Table 'messages' ready to use." << std::endl;
+    }
+}
+
+void Server::saveToDatabase(int client_socket, const std::string& msg) {
+    std::string current_nick = "Anyone";
+    {
+        std::lock_guard<std::mutex> lock(client_mutex);
+        if (client_nicks.count(client_socket)) {
+            current_nick = client_nicks[client_socket];
+        }
+    }
+    std::string sql = "INSERT INTO messages (sender, content) VALUES (?, ?);";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, current_nick.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, msg.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            std::cerr << "Error in save to database" << std::endl;
+        }
+
+        sqlite3_finalize(stmt);
+    }else {
+        std::cerr << "Error copilation SQL" << std::endl;
     }
 }

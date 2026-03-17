@@ -32,6 +32,7 @@ private:
     void broadcastUserList();
 
     void initDatabase();
+    void saveToDatabase(int client_socket, const std::string& msg);
 public:
     Server(int port);
     virtual ~Server();
