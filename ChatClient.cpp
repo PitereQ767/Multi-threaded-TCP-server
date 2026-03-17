@@ -85,7 +85,7 @@ void ChatClient::receiveMessages() {
                 }else if (single_message.rfind("[System] ", 0) == 0) {
                     std::string sub_msg = single_message.substr(9);
                     addLog(sub_msg, MsgType::SYSTEM);
-                }else if (single_message.rfind("[Szept", 0) == 0) {
+                }else if (single_message.rfind("[Whisper", 0) == 0) {
                     addLog(single_message, MsgType::WHISPER);
                 }else if (single_message.rfind("[History", 0) == 0) {
                     addLog(single_message, MsgType::HISTORY);
