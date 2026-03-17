@@ -134,12 +134,12 @@ void Server::handleClient(int client_socket) {
                     client_nicks[client_socket] = new_nick;
                 }
 
-                std::cout << "Gniazdo " << client_socket << " to teraz " << new_nick << std::endl;
+                std::cout << "Socket " << client_socket << " is now " << new_nick << std::endl;
                 broadcastUserList();
 
                 readFromDatabase(client_socket);
 
-                std::string welcome_msg = "[System] " + new_nick + " dolaczyl do czatu";
+                std::string welcome_msg = "[System] " + new_nick + " join to chat";
                 {
                     std::lock_guard<std::mutex> lock(queue_mutex);
                     message_queue.push({0, welcome_msg});
@@ -277,7 +277,7 @@ void Server::readFromDatabase(int client_socket) {
             const char* db_content = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
 
             if (db_sender && db_content) {
-                std::string history_msg = "[Historia] " + std::string(db_sender) + ": " + std::string(db_content) + "\n";
+                std::string history_msg = "[History] " + std::string(db_sender) + ": " + std::string(db_content) + "\n";
 
                 send(client_socket, history_msg.c_str(), history_msg.length(), 0);
             }

@@ -87,6 +87,8 @@ void ChatClient::receiveMessages() {
                     addLog(sub_msg, MsgType::SYSTEM);
                 }else if (single_message.rfind("[Szept", 0) == 0) {
                     addLog(single_message, MsgType::WHISPER);
+                }else if (single_message.rfind("[History", 0) == 0) {
+                    addLog(single_message, MsgType::HISTORY);
                 }
                 else {
                     addLog(single_message, MsgType::OTHER);
@@ -121,10 +123,10 @@ void ChatClient::privateMessage(const std::string &typed_text) {
         std::string target = typed_text.substr(3, space_pos - 3);
         std::string content = typed_text.substr(space_pos + 1);
 
-        std::string local_echo = "[Szept do " + target + "] " + content + "\n";
+        std::string local_echo = "[Whisper to " + target + "] " + content + "\n";
         addLog(local_echo, MsgType::WHISPER);
 
-        std::string network_msg = "/w " + target + " [Szept od " + std::string(nick_buffer) + "] " + content + "\n";
+        std::string network_msg = "/w " + target + " [Whisper from " + std::string(nick_buffer) + "] " + content + "\n";
         send(client_socket, network_msg.c_str(), network_msg.length(), 0);
 
         //Czyszczenie
@@ -138,8 +140,8 @@ void ChatClient::privateMessage(const std::string &typed_text) {
 
 void ChatClient::drawUI() {
     if (!is_connected) {
-        ImGui::Begin("Logowanie do serwera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-        ImGui::InputText("Adres IP", ip_buffer, sizeof(ip_buffer));
+        ImGui::Begin("Login to the server", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::InputText("Address IP", ip_buffer, sizeof(ip_buffer));
         ImGui::InputText("Port", port_buffer, sizeof(port_buffer));
         ImGui::InputText("Nick", nick_buffer, sizeof(nick_buffer));
 
@@ -183,6 +185,8 @@ void ChatClient::drawUI() {
                     color = ImVec4(0.0f, 1.0f, 0.5f, 1.0f);
                 }else if (msg.type == MsgType::WHISPER) {
                   color = ImVec4(1.0f, 0.5f, 1.0f, 1.0f);
+                }else if (msg.type == MsgType::HISTORY) {
+                    color = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
                 }else {
                     color = ImVec4(0.4f, 0.8f, 1.0f, 1.0f);
                 }
@@ -197,7 +201,7 @@ void ChatClient::drawUI() {
 
         ImGui::SameLine();
         ImGui::BeginChild("UserList", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Aktywni ( %zu )", active_users.size());
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Active ( %zu )", active_users.size());
         ImGui::Separator();
 
         {

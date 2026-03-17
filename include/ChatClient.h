@@ -11,7 +11,8 @@ enum class MsgType {
     SYSTEM,
     ME,
     OTHER,
-    WHISPER
+    WHISPER,
+    HISTORY
 };
 
 struct ChatMessage {
