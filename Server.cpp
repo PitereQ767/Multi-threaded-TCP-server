@@ -8,6 +8,16 @@
 #include <algorithm> //for std::remove
 
 Server::Server(int port): server_is_running(true) {
+    int db_r = sqlite3_open("chat_history.db", &db);
+    if (db_r != SQLITE_OK) {
+        std::cerr << "Error opening database: " << sqlite3_errmsg(db) << std::endl;
+        exit(EXIT_FAILURE);
+    }else {
+        std::cout << "Successfully opened database" << std::endl;
+    }
+
+    initDatabase();
+
     server_socket = socket(AF_INET,SOCK_STREAM,0);
     if (server_socket==-1) {
         std::cerr << "Error creating server socket" << std::endl;
@@ -41,6 +51,9 @@ Server::~Server() {
     server_is_running = false;
     queue_condition.notify_all();
     close(server_socket);
+
+    sqlite3_close(db);
+    std::cout << "Closed connection with database." << std::endl;
 }
 
 void Server::start_server() {
@@ -204,4 +217,22 @@ void Server::broadcastUserList() {
         message_queue.push({0, users_msg});
     }
     queue_condition.notify_one();
+}
+
+void Server::initDatabase() {
+    const char* sql = "CREATE TABLE IF NOT EXISTS messages ("
+                      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                      "sender TEXT NOT NULL, "
+                      "content TEXT NOT NULL, "
+                      "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);";
+
+    char* error_msg = nullptr;
+
+    int rc = sqlite3_exec(db, sql, nullptr, nullptr, &error_msg);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Error in SQL: " << error_msg << std::endl;
+        sqlite3_free(error_msg);
+    }else {
+        std::cout << "Table 'messages' ready to use." << std::endl;
+    }
 }

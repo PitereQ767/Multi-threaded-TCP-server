@@ -6,7 +6,7 @@ IMGUI_SRC = imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/im
 all: server client
 
 server:
-	$(CXX) $(CFLAGS) server_main.cpp Server.cpp -o server
+	$(CXX) $(CFLAGS) server_main.cpp Server.cpp -lsqlite3 -o server
 
 client:
 	$(CXX) $(CFLAGS) client_main.cpp ChatClient.cpp $(IMGUI_SRC) -lglfw -lGL -o client

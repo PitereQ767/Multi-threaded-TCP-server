@@ -8,6 +8,7 @@
 #include <queue>
 #include <condition_variable>
 #include <map>
+#include <sqlite3.h>
 
 class Server {
 private:
@@ -23,10 +24,14 @@ private:
     std::mutex queue_mutex;
     std::condition_variable queue_condition; // CPU don't use 100% of power
 
+    sqlite3 *db;
+
     void handleClient(int client_socket);
     // void broadcastMessage(std::string& message, int sender_socket);
     void broadcasterThread();
     void broadcastUserList();
+
+    void initDatabase();
 public:
     Server(int port);
     virtual ~Server();

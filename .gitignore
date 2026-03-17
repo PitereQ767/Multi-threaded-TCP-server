@@ -45,3 +45,4 @@ cmake-build-debug/
 imgui.ini
 client
 server
+*.db
